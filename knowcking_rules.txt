@@ -1,0 +1,43 @@
+// Policy of accepting all
+sudo iptables -P INPUT ACCEPT
+sudo iptables -P FORWARD ACCEPT
+sudo iptables -P OUTPUT ACCEPT
+
+// Flush
+sudo iptables -F
+
+// new rules -N
+sudo iptables -N KNOCKING
+sudo iptables -N GATE1
+sudo iptables -N GATE2
+sudo iptables -N GATE3
+sudo iptables -N PASSED
+
+// for already connected ssh connections
+
+sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+// local loopback accept all
+
+sudo iptables -A INPUT -i lo -j ACCEPT
+
+// web server running at port 80
+
+sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+
+// transfer all traffic to KNOCKING chain for actual knocking logic
+
+sudo iptables -A INPUT -j KNOCKING
+
+// appending a rule to chain Gate1
+
+sudo iptables -A GATE1 -p tcp --dport 1111 -m recent --name AUTH1 --set -j DROP
+
+This line does a number of things. To begin with, it is appending a rule to the GATE1 chain. This rule will match when the protocol being used is “tcp” and when the port it is trying to access is “1111”, our first knock target.
+
+If this is true, the recent module (called with -m recent), flags the requesting IP address with the name AUTH1 (with the --name AUTH1 --set rule). This is the flag we will use to see if the second knock matches. The packet is dropped after the flag is set, so that the client does not know if anything happened.
+
+Next, we will just drop all other packets, because any information that is sent to this chain is only looking for the matching first packet at this point:
+
+sudo iptables -A GATE1 -j DROP
+
